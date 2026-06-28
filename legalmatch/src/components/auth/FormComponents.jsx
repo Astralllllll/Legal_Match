@@ -47,7 +47,7 @@ export function TextInput({ id, type = "text", placeholder, value, onChange, has
   );
 }
 
-export function PasswordInput({ id, placeholder, value, onChange, hasError }) {
+export function PasswordInput({ id, placeholder, value, onChange, hasError, minLength }) {
   const [visible, setVisible] = useState(false);
 
   return (
@@ -58,6 +58,7 @@ export function PasswordInput({ id, placeholder, value, onChange, hasError }) {
         placeholder={placeholder}
         value={value}
         onChange={onChange}
+        minLength={minLength}
         className="w-full rounded-lg border px-3.5 py-2.5 text-sm outline-none transition-all pr-10"
         style={{
           borderColor: hasError ? "#E24B4A" : "#CBD5E1",

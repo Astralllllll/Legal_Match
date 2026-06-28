@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import AuthLayout from "./AuthLayout";
+import { loginLawyer, registerLawyer } from "./authApi";
 import {
   FormField,
   TextInput,
@@ -8,10 +9,11 @@ import {
   Divider,
 } from "./FormComponents";
 
-function LawyerLoginForm({ onSwitch }) {
+function LawyerLoginForm({ onSwitch, onAuthSuccess }) {
   const [form, setForm] = useState({ identifier: "", password: "" });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
 
   const set = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
 
@@ -19,6 +21,7 @@ function LawyerLoginForm({ onSwitch }) {
     const errs = {};
     if (!form.identifier.trim()) errs.identifier = "Email or LSK number is required.";
     if (!form.password) errs.password = "Password is required.";
+    else if (form.password.length < 8) errs.password = "Password must be at least 8 characters.";
     return errs;
   };
 
@@ -27,10 +30,29 @@ function LawyerLoginForm({ onSwitch }) {
     const errs = validate();
     if (Object.keys(errs).length) { setErrors(errs); return; }
     setErrors({});
+    setSuccess(false);
     setLoading(true);
-    // TODO: POST /auth/lawyer/login
-    await new Promise((r) => setTimeout(r, 1200));
+    try {
+      const result = await loginLawyer({
+        identifier: form.identifier,
+        password: form.password,
+      });
+
+      if (!result.ok) {
+        setLoading(false);
+        setErrors({ password: result.error });
+        return;
+      }
+    } catch {
+      setLoading(false);
+      setErrors({ password: "Unable to reach server. Please try again." });
+      return;
+    }
+
     setLoading(false);
+    setSuccess(true);
+    await new Promise((r) => setTimeout(r, 700));
+    onAuthSuccess?.();
   };
 
   return (
@@ -68,6 +90,7 @@ function LawyerLoginForm({ onSwitch }) {
             value={form.password}
             onChange={set("password")}
             hasError={!!errors.password}
+            minLength={8}
           />
         </FormField>
 
@@ -78,6 +101,11 @@ function LawyerLoginForm({ onSwitch }) {
         </div>
 
         <SubmitButton loading={loading}>Sign in</SubmitButton>
+        {success && (
+          <p className="text-xs text-center -mt-1" style={{ color: "#0F6E56" }}>
+            Signed in successfully. Redirecting...
+          </p>
+        )}
       </form>
 
       <Divider label="or" />
@@ -107,7 +135,7 @@ function LawyerLoginForm({ onSwitch }) {
   );
 }
 
-function LawyerRegisterForm({ onSwitch }) {
+function LawyerRegisterForm({ onSwitch, onAuthSuccess }) {
   const [form, setForm] = useState({
     fullName: "",
     lskNumber: "",
@@ -118,6 +146,7 @@ function LawyerRegisterForm({ onSwitch }) {
   });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
 
   const set = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
 
@@ -142,10 +171,33 @@ function LawyerRegisterForm({ onSwitch }) {
     const errs = validate();
     if (Object.keys(errs).length) { setErrors(errs); return; }
     setErrors({});
+    setSuccess(false);
     setLoading(true);
-    // TODO: POST /auth/lawyer/register
-    await new Promise((r) => setTimeout(r, 1200));
+    try {
+      const result = await registerLawyer({
+        fullName: form.fullName,
+        lskNumber: form.lskNumber,
+        email: form.email,
+        phone: form.phone,
+        password: form.password,
+      });
+
+      if (!result.ok) {
+        const field = result.field || "email";
+        setLoading(false);
+        setErrors((prev) => ({ ...prev, [field]: result.error }));
+        return;
+      }
+    } catch {
+      setLoading(false);
+      setErrors({ email: "Unable to reach server. Please try again." });
+      return;
+    }
+
     setLoading(false);
+    setSuccess(true);
+    await new Promise((r) => setTimeout(r, 700));
+    onAuthSuccess?.();
   };
 
   return (
@@ -256,6 +308,11 @@ function LawyerRegisterForm({ onSwitch }) {
         </p>
 
         <SubmitButton loading={loading}>Register practice</SubmitButton>
+        {success && (
+          <p className="text-xs text-center -mt-1" style={{ color: "#0F6E56" }}>
+            Practice registered. Redirecting...
+          </p>
+        )}
       </form>
 
       <Divider label="or" />
@@ -274,7 +331,7 @@ function LawyerRegisterForm({ onSwitch }) {
   );
 }
 
-export default function LawyerAuth({ onSwitchToClient }) {
+export default function LawyerAuth({ onSwitchToClient, onAuthSuccess }) {
   const [view, setView] = useState("login");
 
   const handleSwitch = (target) => {
@@ -285,9 +342,9 @@ export default function LawyerAuth({ onSwitchToClient }) {
   return (
     <AuthLayout role="lawyer">
       {view === "login" ? (
-        <LawyerLoginForm onSwitch={handleSwitch} />
+        <LawyerLoginForm onSwitch={handleSwitch} onAuthSuccess={onAuthSuccess} />
       ) : (
-        <LawyerRegisterForm onSwitch={handleSwitch} />
+        <LawyerRegisterForm onSwitch={handleSwitch} onAuthSuccess={onAuthSuccess} />
       )}
     </AuthLayout>
   );
