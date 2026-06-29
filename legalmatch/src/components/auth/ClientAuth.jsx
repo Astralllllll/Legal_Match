@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import AuthLayout from "./AuthLayout";
+import { loginClient, registerClient } from "./authApi";
 import {
   FormField,
   TextInput,
@@ -8,10 +9,11 @@ import {
   Divider,
 } from "./FormComponents";
 
-function ClientLoginForm({ onSwitch }) {
+function ClientLoginForm({ onSwitch, onAuthSuccess }) {
   const [form, setForm] = useState({ email: "", password: "" });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
 
   const set = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
 
@@ -20,6 +22,7 @@ function ClientLoginForm({ onSwitch }) {
     if (!form.email) errs.email = "Email is required.";
     else if (!/\S+@\S+\.\S+/.test(form.email)) errs.email = "Enter a valid email address.";
     if (!form.password) errs.password = "Password is required.";
+    else if (form.password.length < 8) errs.password = "Password must be at least 8 characters.";
     return errs;
   };
 
@@ -28,10 +31,29 @@ function ClientLoginForm({ onSwitch }) {
     const errs = validate();
     if (Object.keys(errs).length) { setErrors(errs); return; }
     setErrors({});
+    setSuccess(false);
     setLoading(true);
-    // TODO: POST /auth/client/login
-    await new Promise((r) => setTimeout(r, 1200));
+    try {
+      const result = await loginClient({
+        email: form.email,
+        password: form.password,
+      });
+
+      if (!result.ok) {
+        setLoading(false);
+        setErrors({ password: result.error });
+        return;
+      }
+    } catch {
+      setLoading(false);
+      setErrors({ password: "Unable to reach server. Please try again." });
+      return;
+    }
+
     setLoading(false);
+    setSuccess(true);
+    await new Promise((r) => setTimeout(r, 700));
+    onAuthSuccess?.();
   };
 
   return (
@@ -62,6 +84,7 @@ function ClientLoginForm({ onSwitch }) {
             value={form.password}
             onChange={set("password")}
             hasError={!!errors.password}
+            minLength={8}
           />
         </FormField>
 
@@ -76,6 +99,11 @@ function ClientLoginForm({ onSwitch }) {
         </div>
 
         <SubmitButton loading={loading}>Sign in</SubmitButton>
+        {success && (
+          <p className="text-xs text-center -mt-1" style={{ color: "#0F6E56" }}>
+            Signed in successfully. Redirecting...
+          </p>
+        )}
       </form>
 
       <Divider label="or" />
@@ -105,7 +133,7 @@ function ClientLoginForm({ onSwitch }) {
   );
 }
 
-function ClientRegisterForm({ onSwitch }) {
+function ClientRegisterForm({ onSwitch, onAuthSuccess }) {
   const [form, setForm] = useState({
     fullName: "",
     email: "",
@@ -115,6 +143,7 @@ function ClientRegisterForm({ onSwitch }) {
   });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
 
   const set = (field) => (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
 
@@ -136,10 +165,32 @@ function ClientRegisterForm({ onSwitch }) {
     const errs = validate();
     if (Object.keys(errs).length) { setErrors(errs); return; }
     setErrors({});
+    setSuccess(false);
     setLoading(true);
-    // TODO: POST /auth/client/register
-    await new Promise((r) => setTimeout(r, 1200));
+    try {
+      const result = await registerClient({
+        fullName: form.fullName,
+        email: form.email,
+        phone: form.phone,
+        password: form.password,
+      });
+
+      if (!result.ok) {
+        const field = result.field || "email";
+        setLoading(false);
+        setErrors((prev) => ({ ...prev, [field]: result.error }));
+        return;
+      }
+    } catch {
+      setLoading(false);
+      setErrors({ email: "Unable to reach server. Please try again." });
+      return;
+    }
+
     setLoading(false);
+    setSuccess(true);
+    await new Promise((r) => setTimeout(r, 700));
+    onAuthSuccess?.();
   };
 
   return (
@@ -217,6 +268,11 @@ function ClientRegisterForm({ onSwitch }) {
         </p>
 
         <SubmitButton loading={loading}>Create account</SubmitButton>
+        {success && (
+          <p className="text-xs text-center -mt-1" style={{ color: "#0F6E56" }}>
+            Account created. Redirecting...
+          </p>
+        )}
       </form>
 
       <Divider label="or" />
@@ -235,15 +291,23 @@ function ClientRegisterForm({ onSwitch }) {
   );
 }
 
-export default function ClientAuth() {
+export default function ClientAuth({ onSwitchToLawyer, onAuthSuccess }) {
   const [view, setView] = useState("login");
+
+  const handleSwitch = (target) => {
+    if (target === "lawyer-login") {
+      onSwitchToLawyer?.();
+      return;
+    }
+    setView(target === "register" ? "register" : "login");
+  };
 
   return (
     <AuthLayout role="client">
       {view === "login" ? (
-        <ClientLoginForm onSwitch={setView} />
+        <ClientLoginForm onSwitch={handleSwitch} onAuthSuccess={onAuthSuccess} />
       ) : (
-        <ClientRegisterForm onSwitch={setView} />
+        <ClientRegisterForm onSwitch={handleSwitch} onAuthSuccess={onAuthSuccess} />
       )}
     </AuthLayout>
   );
