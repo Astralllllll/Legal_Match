@@ -32,6 +32,7 @@ function LawyerLoginForm({ onSwitch, onAuthSuccess }) {
     setErrors({});
     setSuccess(false);
     setLoading(true);
+    let authenticatedUser = null;
     try {
       const result = await loginLawyer({
         identifier: form.identifier,
@@ -43,6 +44,7 @@ function LawyerLoginForm({ onSwitch, onAuthSuccess }) {
         setErrors({ password: result.error });
         return;
       }
+      authenticatedUser = result.user;
     } catch {
       setLoading(false);
       setErrors({ password: "Unable to reach server. Please try again." });
@@ -52,7 +54,7 @@ function LawyerLoginForm({ onSwitch, onAuthSuccess }) {
     setLoading(false);
     setSuccess(true);
     await new Promise((r) => setTimeout(r, 700));
-    onAuthSuccess?.();
+    onAuthSuccess?.(authenticatedUser, { goToLawyerOnboarding: false });
   };
 
   return (
@@ -173,6 +175,7 @@ function LawyerRegisterForm({ onSwitch, onAuthSuccess }) {
     setErrors({});
     setSuccess(false);
     setLoading(true);
+    let authenticatedUser = null;
     try {
       const result = await registerLawyer({
         fullName: form.fullName,
@@ -188,6 +191,7 @@ function LawyerRegisterForm({ onSwitch, onAuthSuccess }) {
         setErrors((prev) => ({ ...prev, [field]: result.error }));
         return;
       }
+      authenticatedUser = result.user;
     } catch {
       setLoading(false);
       setErrors({ email: "Unable to reach server. Please try again." });
@@ -197,7 +201,7 @@ function LawyerRegisterForm({ onSwitch, onAuthSuccess }) {
     setLoading(false);
     setSuccess(true);
     await new Promise((r) => setTimeout(r, 700));
-    onAuthSuccess?.();
+    onAuthSuccess?.(authenticatedUser, { goToLawyerOnboarding: true });
   };
 
   return (

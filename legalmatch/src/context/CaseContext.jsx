@@ -15,6 +15,7 @@ export function CaseProvider({ children }) {
     budgetMax: "",
     // After submission
     caseId: null,
+    matches: [],
   });
 
   const updateCase = (fields) =>
@@ -30,6 +31,7 @@ export function CaseProvider({ children }) {
       budgetMin: "",
       budgetMax: "",
       caseId: null,
+      matches: [],
     });
 
   return (

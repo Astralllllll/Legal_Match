@@ -33,6 +33,7 @@ function ClientLoginForm({ onSwitch, onAuthSuccess }) {
     setErrors({});
     setSuccess(false);
     setLoading(true);
+    let authenticatedUser = null;
     try {
       const result = await loginClient({
         email: form.email,
@@ -44,6 +45,7 @@ function ClientLoginForm({ onSwitch, onAuthSuccess }) {
         setErrors({ password: result.error });
         return;
       }
+      authenticatedUser = result.user;
     } catch {
       setLoading(false);
       setErrors({ password: "Unable to reach server. Please try again." });
@@ -53,7 +55,7 @@ function ClientLoginForm({ onSwitch, onAuthSuccess }) {
     setLoading(false);
     setSuccess(true);
     await new Promise((r) => setTimeout(r, 700));
-    onAuthSuccess?.();
+    onAuthSuccess?.(authenticatedUser);
   };
 
   return (
@@ -167,6 +169,7 @@ function ClientRegisterForm({ onSwitch, onAuthSuccess }) {
     setErrors({});
     setSuccess(false);
     setLoading(true);
+    let authenticatedUser = null;
     try {
       const result = await registerClient({
         fullName: form.fullName,
@@ -181,6 +184,7 @@ function ClientRegisterForm({ onSwitch, onAuthSuccess }) {
         setErrors((prev) => ({ ...prev, [field]: result.error }));
         return;
       }
+      authenticatedUser = result.user;
     } catch {
       setLoading(false);
       setErrors({ email: "Unable to reach server. Please try again." });
@@ -190,7 +194,7 @@ function ClientRegisterForm({ onSwitch, onAuthSuccess }) {
     setLoading(false);
     setSuccess(true);
     await new Promise((r) => setTimeout(r, 700));
-    onAuthSuccess?.();
+    onAuthSuccess?.(authenticatedUser);
   };
 
   return (

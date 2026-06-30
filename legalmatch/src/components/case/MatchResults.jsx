@@ -1,71 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { useCaseContext, LEGAL_CATEGORIES } from "../../context/CaseContext";
 
-// ─── Mock data (replace with GET /matches/:caseId) ─────────────────────────
-
-const MOCK_MATCHES = [
-  {
-    lawyerId: "L001",
-    name: "Advocate Grace Wanjiru",
-    lskNumber: "LSK/A/14523",
-    specializations: ["Employment Law", "Labour Disputes"],
-    county: "Nairobi",
-    yearsOfExperience: 12,
-    similarCasesCount: 8,
-    similarCasesSummary: "Handled 8 similar employment dispute cases in Nairobi",
-    averageRating: 4.8,
-    totalReviews: 34,
-    similarityScore: 0.91,
-    bio: "Senior advocate specialising in employment and labour law with over a decade of experience representing both employees and employers.",
-    verified: true,
-  },
-  {
-    lawyerId: "L002",
-    name: "Advocate Peter Omondi",
-    lskNumber: "LSK/A/09871",
-    specializations: ["Employment Law", "Corporate Law"],
-    county: "Nairobi",
-    yearsOfExperience: 7,
-    similarCasesCount: 5,
-    similarCasesSummary: "Handled 5 similar wrongful termination cases in Nairobi",
-    averageRating: 4.5,
-    totalReviews: 19,
-    similarityScore: 0.83,
-    bio: "Mid-career advocate with a strong track record in employment disputes and corporate advisory work.",
-    verified: true,
-  },
-  {
-    lawyerId: "L003",
-    name: "Advocate Amina Hassan",
-    lskNumber: "LSK/A/21034",
-    specializations: ["Employment Law", "Family Law"],
-    county: "Mombasa",
-    yearsOfExperience: 9,
-    similarCasesCount: 3,
-    similarCasesSummary: "Handled 3 similar employment cases in Mombasa",
-    averageRating: 4.6,
-    totalReviews: 22,
-    similarityScore: 0.74,
-    bio: "Advocate based in Mombasa with experience across employment and family law matters.",
-    verified: true,
-  },
-  {
-    lawyerId: "L004",
-    name: "Advocate David Kariuki",
-    lskNumber: "LSK/A/33210",
-    specializations: ["General Practice"],
-    county: "Nakuru",
-    yearsOfExperience: 2,
-    similarCasesCount: 0,
-    similarCasesSummary: null,
-    averageRating: null,
-    totalReviews: 0,
-    similarityScore: 0.41,
-    bio: "Junior advocate in general practice, recently admitted to the bar.",
-    verified: true,
-    noExperienceWarning: true,
-  },
-];
+function getInitials(name) {
+  if (!name) return "LM";
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "LM";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+}
 
 // ─── Sub-components ─────────────────────────────────────────────────────────
 
@@ -95,8 +37,7 @@ function StarRating({ rating }) {
   );
 }
 
-function LawyerCard({ match, rank, onSelect }) {
-  const [expanded, setExpanded] = useState(false);
+function LawyerCard({ match, rank, onSelect, onViewProfile }) {
 
   return (
     <div style={{
@@ -142,7 +83,7 @@ function LawyerCard({ match, rank, onSelect }) {
             justifyContent: "center", fontSize: "14px", fontWeight: 600, color: "#185FA5",
             flexShrink: 0,
           }}>
-            {match.name.split(" ").slice(-2).map(n => n[0]).join("")}
+            {getInitials(match.name)}
           </div>
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
@@ -190,23 +131,10 @@ function LawyerCard({ match, rank, onSelect }) {
         )}
       </div>
 
-      {/* Expandable bio */}
-      {expanded && (
-        <div style={{
-          padding: "10px 12px", background: "#F8FAFC",
-          borderRadius: "8px", marginBottom: "12px",
-          fontSize: "13px", color: "#475569", lineHeight: 1.6,
-        }}>
-          <p style={{ margin: "0 0 4px", fontSize: "11px", fontWeight: 500, color: "#94A3B8" }}>About</p>
-          {match.bio}
-          <p style={{ margin: "8px 0 0", fontSize: "11px", color: "#94A3B8" }}>LSK: {match.lskNumber}</p>
-        </div>
-      )}
-
       {/* Actions */}
       <div style={{ display: "flex", gap: "8px" }}>
         <button
-          onClick={() => setExpanded(!expanded)}
+          onClick={() => onViewProfile(match)}
           style={{
             flex: 1, padding: "8px", borderRadius: "8px",
             background: "white", color: "#0F2744",
@@ -216,7 +144,7 @@ function LawyerCard({ match, rank, onSelect }) {
           onMouseEnter={(e) => e.target.style.background = "#F8FAFC"}
           onMouseLeave={(e) => e.target.style.background = "white"}
         >
-          {expanded ? "Show less" : "View profile"}
+          View profile
         </button>
         <button
           onClick={() => onSelect(match)}
@@ -232,6 +160,81 @@ function LawyerCard({ match, rank, onSelect }) {
           Select this lawyer
         </button>
       </div>
+    </div>
+  );
+}
+
+function LawyerProfileView({ lawyer, onBack, onSelect }) {
+  return (
+    <div style={{ background: "white", border: "1px solid #E2E8F0", borderRadius: "12px", padding: "20px" }}>
+      <button
+        onClick={onBack}
+        style={{
+          marginBottom: "16px",
+          background: "transparent",
+          border: "none",
+          color: "#0F2744",
+          fontSize: "13px",
+          fontWeight: 600,
+          cursor: "pointer",
+          padding: 0,
+        }}
+      >
+        ← Back to select lawyers
+      </button>
+
+      <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "14px" }}>
+        <div style={{ width: "50px", height: "50px", borderRadius: "50%", background: "#E6F1FB", color: "#185FA5", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>
+          {getInitials(lawyer.name)}
+        </div>
+        <div>
+          <p style={{ margin: 0, fontSize: "16px", fontWeight: 700, color: "#0F2744" }}>{lawyer.name}</p>
+          <p style={{ margin: "2px 0 0", fontSize: "12px", color: "#64748B" }}>{lawyer.county} · {lawyer.yearsOfExperience} yrs experience</p>
+        </div>
+      </div>
+
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px", marginBottom: "14px" }}>
+        {lawyer.specializations.map((s) => (
+          <span key={s} style={{ padding: "3px 10px", background: "#F1F5F9", borderRadius: "20px", fontSize: "11px", color: "#475569", fontWeight: 500 }}>
+            {s}
+          </span>
+        ))}
+      </div>
+
+      <div style={{ background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: "8px", padding: "12px", marginBottom: "14px" }}>
+        <p style={{ margin: "0 0 4px", fontSize: "11px", fontWeight: 600, color: "#94A3B8" }}>About</p>
+        <p style={{ margin: 0, fontSize: "13px", color: "#475569", lineHeight: 1.6 }}>{lawyer.bio}</p>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "14px" }}>
+        <div>
+          <p style={{ margin: "0 0 4px", fontSize: "11px", fontWeight: 600, color: "#94A3B8" }}>Qualifications</p>
+          <p style={{ margin: 0, fontSize: "12px", color: "#0F2744" }}>{lawyer.academicQualifications || "—"}</p>
+        </div>
+        <div>
+          <p style={{ margin: "0 0 4px", fontSize: "11px", fontWeight: 600, color: "#94A3B8" }}>Courts</p>
+          <p style={{ margin: 0, fontSize: "12px", color: "#0F2744" }}>{lawyer.courts || "—"}</p>
+        </div>
+        <div>
+          <p style={{ margin: "0 0 4px", fontSize: "11px", fontWeight: 600, color: "#94A3B8" }}>Languages</p>
+          <p style={{ margin: 0, fontSize: "12px", color: "#0F2744" }}>{lawyer.languages || "—"}</p>
+        </div>
+        <div>
+          <p style={{ margin: "0 0 4px", fontSize: "11px", fontWeight: 600, color: "#94A3B8" }}>Fee guidance</p>
+          <p style={{ margin: 0, fontSize: "12px", color: "#0F2744" }}>{lawyer.priceGuidance || "—"}</p>
+        </div>
+      </div>
+
+      <button
+        onClick={() => onSelect(lawyer)}
+        style={{
+          width: "100%", padding: "10px", borderRadius: "8px",
+          background: "#0F2744", color: "white", border: "none",
+          fontSize: "13px", fontWeight: 500, cursor: "pointer",
+        }}
+      >
+        Select this lawyer
+      </button>
     </div>
   );
 }
@@ -293,19 +296,35 @@ export default function MatchResults({ onPostNewCase }) {
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedLawyer, setSelectedLawyer] = useState(null);
+  const [profileLawyer, setProfileLawyer] = useState(null);
   const [confirmed, setConfirmed] = useState(false);
 
   const category = LEGAL_CATEGORIES.find((c) => c.value === caseData.legalCategory);
 
   useEffect(() => {
-    // TODO: GET /matches/:caseId
-    const load = async () => {
-      await new Promise((r) => setTimeout(r, 1200));
-      setMatches(MOCK_MATCHES);
-      setLoading(false);
-    };
-    load();
-  }, [caseData.caseId]);
+    const normalizedMatches = (caseData.matches || []).map((match) => ({
+      lawyerId: match.lawyer_id,
+      name: match.full_name || `Advocate ${match.lsk_registration_number || "Lawyer"}`,
+      lskNumber: match.lsk_registration_number || "N/A",
+      specializations: (match.specializations || "General Practice").split(",").map((s) => s.trim()).filter(Boolean),
+      county: caseData.jurisdiction || "Kenya",
+      yearsOfExperience: Number(match.years_of_experience || 0),
+      similarCasesCount: null,
+      similarCasesSummary: null,
+      averageRating: match.average_rating !== null && match.average_rating !== undefined ? Number(match.average_rating) : null,
+      totalReviews: Number(match.total_reviews || 0),
+      similarityScore: Number(match.similarity_score || 0),
+      bio: match.biography || "No biography provided.",
+      academicQualifications: match.academic_qualifications || "",
+      courts: match.courts || "",
+      languages: match.languages || "",
+      priceGuidance: match.price_guidance || "",
+      verified: true,
+    }));
+
+    setMatches(normalizedMatches);
+    setLoading(false);
+  }, [caseData.caseId, caseData.matches, caseData.jurisdiction]);
 
   const handleConfirm = async () => {
     // TODO: POST /cases/:caseId/select { lawyerId: selectedLawyer.lawyerId }
@@ -388,6 +407,12 @@ export default function MatchResults({ onPostNewCase }) {
             ))}
             <style>{`@keyframes pulse { 0%,100%{opacity:.6} 50%{opacity:1} }`}</style>
           </div>
+        ) : profileLawyer ? (
+          <LawyerProfileView
+            lawyer={profileLawyer}
+            onBack={() => setProfileLawyer(null)}
+            onSelect={setSelectedLawyer}
+          />
         ) : (
           <>
             {matches.length === 0 ? (
@@ -421,6 +446,7 @@ export default function MatchResults({ onPostNewCase }) {
                     match={match}
                     rank={i + 1}
                     onSelect={setSelectedLawyer}
+                    onViewProfile={setProfileLawyer}
                   />
                 ))}
               </div>

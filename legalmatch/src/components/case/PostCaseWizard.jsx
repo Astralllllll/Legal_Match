@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import StepIndicator from "./StepIndicator";
 import { useCaseContext, LEGAL_CATEGORIES, KENYAN_COUNTIES, URGENCY_LEVELS } from "../../context/CaseContext";
+import { submitIssue, generateMatches } from "./caseApi";
 
 // ─── Shared field styles ────────────────────────────────────────────────────
 
@@ -396,30 +397,68 @@ function Step3({ onBack, onSubmit, submitting }) {
 
 // ─── Wizard shell ───────────────────────────────────────────────────────────
 
-export default function PostCaseWizard({ onSubmitSuccess }) {
+export default function PostCaseWizard({ onSubmitSuccess, currentUser }) {
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
   const { caseData, updateCase } = useCaseContext();
 
   const handleSubmit = async () => {
+    setSubmitError("");
+
+    if (!currentUser?.id) {
+      setSubmitError("Please sign in again before posting your case.");
+      return;
+    }
+
     setSubmitting(true);
     try {
-      // TODO: POST /cases with caseData
-      // const res = await fetch("/api/cases", {
-      //   method: "POST",
-      //   headers: { "Content-Type": "application/json" },
-      //   body: JSON.stringify(caseData),
-      // });
-      // const { caseId } = await res.json();
-      // updateCase({ caseId });
+      const budgetRange = (caseData.budgetMin || caseData.budgetMax)
+        ? `KES ${Number(caseData.budgetMin || 0).toLocaleString()} - ${Number(caseData.budgetMax || 0).toLocaleString()}`
+        : null;
 
-      // Simulated response for now
-      await new Promise((r) => setTimeout(r, 1500));
-      const mockCaseId = `CASE-${Date.now()}`;
-      updateCase({ caseId: mockCaseId });
-      onSubmitSuccess(mockCaseId);
+      const issueResult = await submitIssue({
+        client_id: currentUser.id,
+        issue_title: caseData.title.trim(),
+        issue_description: caseData.description.trim(),
+        budget_range: budgetRange,
+      });
+
+      if (!issueResult.ok) {
+        setSubmitError(issueResult.error);
+        return;
+      }
+
+      const issueId = issueResult.data?.issue?.issue_id;
+      if (!issueId) {
+        setSubmitError("Issue was created, but no issue ID was returned.");
+        return;
+      }
+
+      const matchResult = await generateMatches({
+        client_id: currentUser.id,
+        issue_id: issueId,
+        issue_text: `${caseData.title}. ${caseData.description}`,
+      });
+
+      if (!matchResult.ok) {
+        if (matchResult.status === 404) {
+          updateCase({ caseId: issueId, matches: [] });
+          onSubmitSuccess(issueId);
+          return;
+        }
+        setSubmitError(matchResult.error);
+        return;
+      }
+
+      updateCase({
+        caseId: issueId,
+        matches: matchResult.data?.matches || [],
+      });
+      onSubmitSuccess(issueId);
     } catch (err) {
       console.error("Case submission failed:", err);
+      setSubmitError("Failed to submit your case. Please try again.");
     } finally {
       setSubmitting(false);
     }
@@ -471,6 +510,11 @@ export default function PostCaseWizard({ onSubmitSuccess }) {
           {step === 1 && <Step1 onNext={() => setStep(2)} />}
           {step === 2 && <Step2 onNext={() => setStep(3)} onBack={() => setStep(1)} />}
           {step === 3 && <Step3 onBack={() => setStep(2)} onSubmit={handleSubmit} submitting={submitting} />}
+          {submitError && (
+            <p style={{ marginTop: "14px", fontSize: "12px", color: "#E24B4A" }}>
+              {submitError}
+            </p>
+          )}
         </div>
 
         <p style={{ textAlign: "center", fontSize: "12px", color: "#94A3B8", marginTop: "20px" }}>

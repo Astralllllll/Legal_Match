@@ -2,6 +2,9 @@ import crypto from "crypto";
 import express from "express";
 import cors from "cors";
 import pool from "./db.js";
+import profileRoutes from "./routes/profiles.js";
+import issueRoutes from "./routes/issues.js";
+import matchRoutes from "./routes/matches.js";
 
 const app = express();
 const PORT = Number(process.env.PORT) || 5000;
@@ -46,7 +49,11 @@ function normalizeRole(role) {
 
 // Middleware
 app.use(cors());
+
 app.use(express.json());
+app.use('/api/profiles', profileRoutes);
+app.use('/api/issues', issueRoutes);
+app.use('/api/matches', matchRoutes);
 
 app.get("/api/health", (_req, res) => {
   res.json({ ok: true, message: "Server is running" });
@@ -65,38 +72,43 @@ app.post("/api/auth/client/register", async (req, res) => {
     return res.status(400).json({ field: "password", error: "Password must be at least 8 characters." });
   }
 
-  const client = await pool.connect();
   try {
-    await client.query("BEGIN");
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
 
-    const newUser = await client.query(
-      `INSERT INTO Users (email, password_hash, role)
-       VALUES ($1, $2, 'Client')
-       RETURNING user_id, email, role, created_at`,
-      [email.trim().toLowerCase(), hashPassword(password)]
-    );
+      const newUser = await client.query(
+        `INSERT INTO Users (email, password_hash, role)
+         VALUES ($1, $2, 'Client')
+         RETURNING user_id, email, role, created_at`,
+        [email.trim().toLowerCase(), hashPassword(password)]
+      );
 
-    await client.query("COMMIT");
+      await client.query("COMMIT");
 
-    const user = newUser.rows[0];
-    return res.status(201).json({
-      user: {
-        id: user.user_id,
-        fullName: fullName.trim(),
-        email: user.email,
-        phone: phone || null,
-        role: user.role,
-      },
-    });
-  } catch (err) {
-    await client.query("ROLLBACK");
-    if (err.code === "23505") {
-      return res.status(409).json({ field: "email", error: "An account with this email already exists." });
+      const user = newUser.rows[0];
+      return res.status(201).json({
+        user: {
+          id: user.user_id,
+          fullName: fullName.trim(),
+          email: user.email,
+          phone: phone || null,
+          role: user.role,
+        },
+      });
+    } catch (err) {
+      await client.query("ROLLBACK").catch(() => {});
+      if (err.code === "23505") {
+        return res.status(409).json({ field: "email", error: "An account with this email already exists." });
+      }
+      console.error("Client register failed:", err.message);
+      return res.status(500).json({ error: "Server error while creating account." });
+    } finally {
+      client.release();
     }
-    console.error("Client register failed:", err.message);
-    return res.status(500).json({ error: "Server error while creating account." });
-  } finally {
-    client.release();
+  } catch (err) {
+    console.error("Client register connection failed:", err.message);
+    return res.status(500).json({ error: "Database connection failed. Please try again." });
   }
 });
 
@@ -152,48 +164,53 @@ app.post("/api/auth/lawyer/register", async (req, res) => {
     return res.status(400).json({ field: "password", error: "Password must be at least 8 characters." });
   }
 
-  const client = await pool.connect();
   try {
-    await client.query("BEGIN");
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
 
-    const newUser = await client.query(
-      `INSERT INTO Users (email, password_hash, role)
-       VALUES ($1, $2, 'Lawyer')
-       RETURNING user_id, email, role`,
-      [email.trim().toLowerCase(), hashPassword(password)]
-    );
+      const newUser = await client.query(
+        `INSERT INTO Users (email, password_hash, role)
+         VALUES ($1, $2, 'Lawyer')
+         RETURNING user_id, email, role`,
+        [email.trim().toLowerCase(), hashPassword(password)]
+      );
 
-    await client.query(
-      `INSERT INTO LawyerProfiles (user_id, lsk_registration_number, specializations)
-       VALUES ($1, $2, $3)`,
-      [newUser.rows[0].user_id, lskNumber.trim().toUpperCase(), null]
-    );
+      await client.query(
+        `INSERT INTO LawyerProfiles (user_id, lsk_registration_number, specializations)
+         VALUES ($1, $2, $3)`,
+        [newUser.rows[0].user_id, lskNumber.trim().toUpperCase(), null]
+      );
 
-    await client.query("COMMIT");
+      await client.query("COMMIT");
 
-    return res.status(201).json({
-      user: {
-        id: newUser.rows[0].user_id,
-        fullName: fullName.trim(),
-        email: newUser.rows[0].email,
-        phone: phone || null,
-        lskNumber: lskNumber.trim().toUpperCase(),
-        role: newUser.rows[0].role,
-      },
-    });
-  } catch (err) {
-    await client.query("ROLLBACK");
-    if (err.code === "23505") {
-      const duplicateField = err.constraint?.toLowerCase().includes("lsk") ? "lskNumber" : "email";
-      const duplicateError = duplicateField === "lskNumber"
-        ? "This LSK number is already registered."
-        : "An account with this email already exists.";
-      return res.status(409).json({ field: duplicateField, error: duplicateError });
+      return res.status(201).json({
+        user: {
+          id: newUser.rows[0].user_id,
+          fullName: fullName.trim(),
+          email: newUser.rows[0].email,
+          phone: phone || null,
+          lskNumber: lskNumber.trim().toUpperCase(),
+          role: newUser.rows[0].role,
+        },
+      });
+    } catch (err) {
+      await client.query("ROLLBACK").catch(() => {});
+      if (err.code === "23505") {
+        const duplicateField = err.constraint?.toLowerCase().includes("lsk") ? "lskNumber" : "email";
+        const duplicateError = duplicateField === "lskNumber"
+          ? "This LSK number is already registered."
+          : "An account with this email already exists.";
+        return res.status(409).json({ field: duplicateField, error: duplicateError });
+      }
+      console.error("Lawyer register failed:", err.message);
+      return res.status(500).json({ error: "Server error while creating account." });
+    } finally {
+      client.release();
     }
-    console.error("Lawyer register failed:", err.message);
-    return res.status(500).json({ error: "Server error while creating account." });
-  } finally {
-    client.release();
+  } catch (err) {
+    console.error("Lawyer register connection failed:", err.message);
+    return res.status(500).json({ error: "Database connection failed. Please try again." });
   }
 });
 
@@ -251,10 +268,14 @@ app.get('/api/lawyers', async (req, res) => {
     const allLawyers = await pool.query(
       `SELECT 
         profile_id, 
+        user_id,
         lsk_registration_number, 
         academic_qualifications, 
         years_of_experience, 
-        specializations 
+        specializations,
+        previous_cases_handled,
+        price_guidance,
+        success_rate
        FROM LawyerProfiles`
     );
     
@@ -288,6 +309,14 @@ app.get('/api/lawyers/:id', async (req, res) => {
 });
 
 // =========================================================================
+
+app.use((err, _req, res, next) => {
+  console.error("Unhandled error:", err?.message || err);
+  if (res.headersSent) {
+    return next(err);
+  }
+  return res.status(500).json({ error: "Server error. Please try again." });
+});
 
 // Start the server
 app.listen(PORT, () => {
